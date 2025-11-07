@@ -1,4 +1,4 @@
-# 📚 Multi-Agent Publication Reviewer & Recommendation System – Project 2 (AAIDC)
+# 📚 Multi-Agent Publication Reviewer & Recommendation System (AAIDC – Project 2)
 
 This project implements a multi-agent AI system that analyzes GitHub repositories and generates structured improvement suggestions for better publication quality.
 It reviews README content, metadata, tags, structure, and missing documentation, then creates a final report with actionable recommendations.
