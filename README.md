@@ -1,6 +1,4 @@
-📚 Multi-Agent Publication Reviewer & Recommendation System
-
-Agentic AI Developer Certification – Module 2 Project
+# 📚 Multi-Agent Publication Reviewer & Recommendation System – Module 2 Project (AAIDC)
 
 This project implements a multi-agent AI system that analyzes GitHub repositories and generates structured improvement suggestions for better publication quality.
 It reviews README content, metadata, tags, structure, and missing documentation, then creates a final report with actionable recommendations.
@@ -9,7 +7,7 @@ It reviews README content, metadata, tags, structure, and missing documentation,
 ✅ Uses multiple specialized agents
 ✅ Integrates multiple tools including a GitHub reader, keyword extractor, and Google Gemini LLM
 
-✅ Features
+## ✅ Features
 
 ✔ Multi-agent system with clear roles
 ✔ Each agent communicates and contributes to shared task
@@ -28,7 +26,7 @@ Final combined reviewer report
 
 ✔ Outputs saved locally for reference
 
-✅ System Architecture
+## ✅ System Architecture
 🧠 Agents
 | Agent                      | Purpose                                             |
 | -------------------------- | --------------------------------------------------- |
@@ -37,14 +35,14 @@ Final combined reviewer report
 | **Content Improver Agent** | Suggests better title/summary and missing sections  |
 | **Reviewer Agent**         | Consolidates all findings into final report         |
 
-🛠 Tools
+## 🛠 Tools
 | Tool                     | Function                                     |
 | ------------------------ | -------------------------------------------- |
 | ✅ GitHub Content Reader  | Fetch README, repo structure                 |
 | ✅ YAKE Keyword Extractor | Extracts tags/topics                         |
 | ✅ Google Gemini API      | Writes summaries, improvements, final report |
 
-✅ Tech Stack
+## ✅ Tech Stack
 | Component          | Technology    |
 | ------------------ | ------------- |
 | Language           | Python 3.9+   |
@@ -54,26 +52,10 @@ Final combined reviewer report
 | Environment        | dotenv        |
 | Output             | Text reports  |
 
-✅ Project Structure
-rt-aaidc-project2-multiagent/
-│
-├── src/
-│   ├── app.py             # Main orchestrator + CLI
-│   ├── agents.py          # Agent definitions
-│   ├── tools.py           # Tools (GitHub fetcher, keyword extractor)
-│   └── state.py           # Shared system state
-│
-├── outputs/
-│   ├── recommendations.txt
-│   └── report.txt
-│
-├── .env.example           # Sample environment file
-├── .gitignore             # Ignore env, cache, etc.
-├── LICENSE                # MIT License
-├── README.md              # Documentation + usage
-└── requirements.txt       # Python dependencies
+## ✅ Project Structure
+![alt text](<Project Structure 2.png>)
 
-✅ Setup Instructions
+## ✅ Setup Instructions
 1️⃣ Create and activate virtual environment
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
@@ -87,20 +69,18 @@ Create .env in project root:
 
 GOOGLE_API_KEY=your_key_here
 
-✅ How to Run
+## ✅ How to Run
 
 Example:
 
 python -m src.app --repo "https://github.com/sbm-11-SFDC/rt-aaidc-project1-template"
-python -m src.app --repo "https://github.com/sbm-11-SFDC/rt-aaidc-project2-multiagent"
 
-
-💡 Output files generated:
+## 💡 Output files generated:
 
 outputs/recommendations.txt
 outputs/report.txt
 
-✅ Sample Output (What the report includes)
+## ✅ Sample Output (What the report includes)
 
 ✔ Improved project title
 ✔ Better short summary
@@ -108,7 +88,7 @@ outputs/report.txt
 ✔ Missing README sections checklist
 ✔ Final reviewer-style recommendations
 
-✅ Author
+## ✅ Author
 
 Suraj Mahale
 GitHub: https://github.com/sbm-11-SFDC
