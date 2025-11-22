@@ -6,7 +6,7 @@ It generates a concise reviewer-style report combining feedback from multiple sp
 
 This project was developed as part of the Ready Tensor – Agentic AI Developer Certification (Module 2) and demonstrates multi-agent collaboration, tool augmentation, human-in-the-loop validation, and structured workflow orchestration using LangGraph.
 
-## ✅ Key Features
+## 🌟 Key Features
 
 This system goes beyond a simple text analyzer by enabling cooperation between multiple agents, each responsible for a distinct aspect of the review pipeline.
 Every agent contributes unique insights, and the orchestrator ensures that the sequence of analysis is deterministic, explainable, and robust.
@@ -28,7 +28,7 @@ Error handling to safely recover from malformed URLs, missing READMEs, or API fa
 Clear logging and output persistence to the outputs/ directory
 
 
-## ✅ System Architecture
+## 🧩 System Architecture
 Agents & Their Roles
 | Agent                      | Purpose                                             |
 | -------------------------- | --------------------------------------------------- |
@@ -46,7 +46,7 @@ Several tools extend the intelligence of the agents:
 | **Google Gemini LLM**              | Generates improved summaries, titles, and the final reviewer report. |
 | **Tenacity-based retry mechanism** | Ensures resilience against transient network failures.               |
 
-## ✅ Tech Stack
+## 🧰 Tech Stack
 | Component          | Technology    |
 | ------------------ | ------------- |
 | Language           | Python 3.9+   |
@@ -56,7 +56,7 @@ Several tools extend the intelligence of the agents:
 | Environment        | dotenv        |
 | Output             | Text reports  |
 
-## ✅ Project Structure
+## 📁 Project Structure
 ![alt text](<Project Structure.png>)
 
 # ⚙️ Installation & Setup
@@ -160,15 +160,14 @@ Execution time, reliability, and failure resilience
 
 The system achieved consistent output and demonstrated strong reliability during repeated test runs with different GitHub repositories.
 
-📄 License
+# 📄 License
 This project is licensed under the MIT License.
 
 See the [LICENSE] file for details
 
-👤 Author
+# 👤 Author
 
 Suraj Mahale
-
 AI & Salesforce Developer
 
 GitHub: https://github.com/sbm-11-SFDC
