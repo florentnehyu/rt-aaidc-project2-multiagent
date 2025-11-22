@@ -1,33 +1,35 @@
 # 📚 Multi-Agent Publication Reviewer & Recommendation System (AAIDC – Project 2)
 
-This project implements a multi-agent AI system that analyzes GitHub repositories and generates structured improvement suggestions for better publication quality.
-It reviews README content, metadata, tags, structure, and missing documentation, then creates a final report with actionable recommendations.
+This project implements a multi-agent AI system that analyzes GitHub repositories and produces actionable recommendations for improving technical publications.
+The system evaluates README structure, tag quality, metadata completeness, clarity of explanation, and missing documentation.
+It generates a concise reviewer-style report combining feedback from multiple specialized agents, creating a publish-ready improvement guide.
 
-✅ Built with LangGraph for agent orchestration
-✅ Uses multiple specialized agents
-✅ Integrates multiple tools including a GitHub reader, keyword extractor, and Google Gemini LLM
+This project was developed as part of the Ready Tensor – Agentic AI Developer Certification (Module 2) and demonstrates multi-agent collaboration, tool augmentation, human-in-the-loop validation, and structured workflow orchestration using LangGraph.
 
-## ✅ Features
+## ✅ Key Features
 
-✔ Multi-agent system with clear roles
-✔ Each agent communicates and contributes to shared task
-✔ Orchestrated workflow using LangGraph
-✔ Generates:
+This system goes beyond a simple text analyzer by enabling cooperation between multiple agents, each responsible for a distinct aspect of the review pipeline.
+Every agent contributes unique insights, and the orchestrator ensures that the sequence of analysis is deterministic, explainable, and robust.
 
-Improved project title
+The workflow includes:
 
-Better short description
+Automated retrieval of README content from GitHub
 
-Suggested tags and categories
+Keyword extraction and tag recommendation
 
-Missing README sections
+Content enhancement suggestions (title, intro, missing sections)
 
-Final combined reviewer report
+Final reviewer report combining all agent outputs
 
-✔ Outputs saved locally for reference
+Human-in-the-loop checkpoints allowing the user to approve or edit intermediate results
+
+Error handling to safely recover from malformed URLs, missing READMEs, or API failures
+
+Clear logging and output persistence to the outputs/ directory
+
 
 ## ✅ System Architecture
-🧠 Agents
+Agents & Their Roles
 | Agent                      | Purpose                                             |
 | -------------------------- | --------------------------------------------------- |
 | **Repo Analyzer Agent**    | Reads GitHub repo, extracts README + file structure |
@@ -35,12 +37,13 @@ Final combined reviewer report
 | **Content Improver Agent** | Suggests better title/summary and missing sections  |
 | **Reviewer Agent**         | Consolidates all findings into final report         |
 
-## 🛠 Tools
-| Tool                     | Function                                     |
-| ------------------------ | -------------------------------------------- |
-| ✅ GitHub Content Reader  | Fetch README, repo structure                 |
-| ✅ YAKE Keyword Extractor | Extracts tags/topics                         |
-| ✅ Google Gemini API      | Writes summaries, improvements, final report |
+## 🛠 Tools Used
+Several tools extend the intelligence of the agents:
+| Tool                               | Purpose                       | -------------------------------------------------------------------- |
+| **GitHub Content Reader**          | Fetches README content using GitHub’s raw content and API patterns.  |
+| **YAKE Keyword Extractor**         | Identifies salient keywords for tag generation.                      |
+| **Google Gemini LLM**              | Generates improved summaries, titles, and the final reviewer report. |
+| **Tenacity-based retry mechanism** | Ensures resilience against transient network failures.               |
 
 ## ✅ Tech Stack
 | Component          | Technology    |
@@ -55,47 +58,117 @@ Final combined reviewer report
 ## ✅ Project Structure
 ![alt text](<Project Structure.png>)
 
-## ✅ Setup Instructions
-1️⃣ Create and activate virtual environment
+# ⚙️ Installation & Setup
+
+1️⃣ Create and activate a virtual environment
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 
 2️⃣ Install dependencies
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 
-3️⃣ Add your API key
+3️⃣ Configure environment variables
+Create a .env file in the project root:
+GOOGLE_API_KEY=your_google_api_key_here
+.env is protected via .gitignore and will not be committed.
 
-Create .env in project root:
-
-GOOGLE_API_KEY=your_key_here
-
-## ✅ How to Run
-
-# Example:
-
-# make src a package (one-time)
+▶️ Running the Application
+One-time setup (make src a package)
 ni .\src\__init__.py -ItemType File -ErrorAction SilentlyContinue
 
-# run the app as a module
+## ▶️ Running the system (interactive HITL)
+
+# Analyze a public GitHub repo with human-in-the-loop checkpoints:
+python -m src.app --repo "https://api.github.com/repos/{owner}/{repo}/readme"
+
+💡 Explanation:
+
+{owner} = GitHub username or organization
+{repo} = Repository name
+
+This URL correctly points to the GitHub REST API endpoint for the README file.
+
+# Example:
 python -m src.app --repo "https://github.com/sbm-11-SFDC/rt-aaidc-project2-multiagent"
 
-## 💡 Output files generated:
 
-outputs/recommendations.txt
-outputs/report.txt
+# Non-interactive (automated) mode:
+python -m src.app --repo "https://api.github.com/repos/{owner}/{repo}/readme"--no-interactive
 
-## ✅ Sample Output (What the report includes)
+# Example:
+python -m src.app --repo "https://github.com/sbm-11-SFDC/rt-aaidc-project2-multiagent" --no-interactive
 
-✔ Improved project title
-✔ Better short summary
-✔ Relevant tags & categories
-✔ Missing README sections checklist
-✔ Final reviewer-style recommendations
+Generated Output
+outputs/recommendations_<timestamp>.txt
+outputs/report_<timestamp>.txt
 
-👤 Author
+# 🧩 Human-in-the-Loop (HITL) Interaction
 
+At key phases, the system pauses and asks the user:
+
+Proceed? (yes/no/edit)
+
+Edit suggested title / intro / excerpt?
+
+Override auto-generated suggestions?
+
+This ensures trust, transparency, and human oversight—important principles for agentic AI systems.
+
+# 🏗️ Architecture Overview
+
+The system follows a clear multi-agent pipeline:
+
+Repo Analyzer reads the GitHub repo, extracts README, project metadata, and structural signals.
+
+Tag Recommender generates keyword-based tags using YAKE and document semantics.
+
+Content Improver rewrites and enhances project descriptions, summaries, and titles.
+
+Reviewer Agent evaluates the combined output and produces the final consolidated report.
+
+Human Reviewer (HITL) optionally refines or approves the final result.
+
+# 🛡️ Safety, Error Handling & System Resilience
+
+The system incorporates multiple layers of defensive design:
+
+GitHub fetch failures gracefully fallback with clear messages
+
+Retry logic mitigates temporary API or network failures
+
+Input sanitization protects agents from malformed README content
+
+Shared state prevents inconsistent transitions or data loss
+
+Missing README or empty content is safely detected early
+
+Human approval required before finalizing key stages
+
+These measures collectively ensure the system remains stable, interpretable, and reliable even during edge-case scenarios.
+
+# 📊 Performance Evaluation (Summary)
+
+A full evaluation report is available in performance_evaluation.md.
+The assessment covered:
+
+Retrieval and parsing stability across multiple repositories
+
+Agent-to-agent coordination performance
+
+Robustness under malformed URLs, missing READMEs, and unexpected text formats
+
+Human-in-the-loop interaction timing and error recovery
+
+Execution time, reliability, and failure resilience
+
+The system achieved consistent output and demonstrated strong reliability during repeated test runs with different GitHub repositories.
+
+# 📦 License
+This project is licensed under the MIT License.
+See the [LICENSE] file for details
+
+# 👤 Author
 Suraj Mahale
 AI & Salesforce Developer
-GitHub: 
-https://github.com/sbm-11-SFDC
+GitHub:https://github.com/sbm-11-SFDC
 
