@@ -1,140 +1,210 @@
+# src/app.py
+from __future__ import annotations
 import os
-import time
+import argparse
+from pathlib import Path
+from typing import Optional
 from dotenv import load_dotenv
-from langgraph.graph import StateGraph, END
+import json
+import sys
 
+# ✅ Use package-relative imports so `python -m src.app` works
+from .tools import safe_call, fetch_readme_via_api
+from .agents import repo_analyzer, tag_recommender, content_improver, reviewer
 from .state import MASState
-from .agents import (
-    agent_repo_analyzer,
-    agent_metadata,
-    agent_content_improver,
-    agent_reviewer,
-)
+
+OUTPUTS_DIR = Path(__file__).resolve().parent.parent / "outputs"
+OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def build_graph():
-    """Build the LangGraph state machine with 4 agents."""
-    graph = StateGraph(MASState)
-
-    graph.add_node("analyze_repo", agent_repo_analyzer)
-    graph.add_node("metadata", agent_metadata)
-    graph.add_node("improve_content", agent_content_improver)
-    graph.add_node("review", agent_reviewer)
-
-    graph.set_entry_point("analyze_repo")
-    graph.add_edge("analyze_repo", "metadata")
-    graph.add_edge("metadata", "improve_content")
-    graph.add_edge("improve_content", "review")
-    graph.add_edge("review", END)
-
-    return graph.compile()
-
-
-def run_pipeline(repo_url: str) -> MASState:
-    """Run the multi-agent pipeline and return the final state."""
-    app = build_graph()
-    initial: MASState = {"repo_url": repo_url}
-    return app.invoke(initial)
-
-
-def _guess_repo_name(repo_url: str) -> str:
+def ask_human_choice(prompt_text: str) -> str:
     """
-    Try to extract a stable repository name from common GitHub URL patterns.
-    Examples:
-      https://github.com/user/repo                -> repo
-      https://github.com/user/repo/               -> repo
-      https://github.com/user/repo/tree/main      -> repo
-      https://github.com/user/repo/blob/main/README.md -> repo
+    Ask the human to choose: yes / no / edit
+    (Human-in-the-loop control point)
     """
-    url = (repo_url or "").strip().rstrip("/")
-    parts = [p for p in url.split("/") if p]
-    if not parts:
-        return "repo"
-
-    # Typical positions:
-    # ... github.com / user / repo / (optional: tree|blob / branch / ...)
-    # We look for 'tree' or 'blob' markers to step back.
-    if "tree" in parts:
-        idx = parts.index("tree")
-        if idx >= 1:
-            return parts[idx - 1]  # repo
-    if "blob" in parts:
-        idx = parts.index("blob")
-        if idx >= 1:
-            return parts[idx - 1]  # repo
-
-    # Otherwise, take the last path component as repo
-    return parts[-1]
+    while True:
+        choice = input(prompt_text + " (yes / no / edit) > ").strip().lower()
+        if choice in ("yes", "y"):
+            return "yes"
+        if choice in ("no", "n"):
+            return "no"
+        if choice == "edit":
+            return "edit"
+        print("Please enter 'yes', 'no' or 'edit'.")
 
 
-if __name__ == "__main__":
-    import argparse
+def get_multiline_input(prompt_header: str) -> str:
+    """
+    Collect multi-line human input until a blank line is entered.
+    Used when the human wants to edit intermediate outputs.
+    """
+    print(prompt_header)
+    print("(Enter your edited text. Finish by entering a blank line on its own.)")
+    lines = []
+    while True:
+        try:
+            line = input()
+        except EOFError:
+            break
+        if line.strip() == "":
+            break
+        lines.append(line)
+    return "\n".join(lines).strip()
 
+
+def run_pipeline(repo_url: str, interactive: bool = True, timeout_sec: int = 10):
     load_dotenv()
+    state = MASState()
 
-    parser = argparse.ArgumentParser(description="Multi-Agent Publication Assistant")
-    parser.add_argument("--repo", required=True, help="GitHub repo URL")
+    print(f"\nFetching README for: {repo_url} ...")
+    try:
+        # ✅ Wrapped in safe_call for retry + error handling
+        readme = safe_call(
+            fetch_readme_via_api,
+            repo_url,
+            tries=3,
+            base_delay=1.0,
+            timeout=timeout_sec,
+        )
+    except Exception as e:
+        print(f"Error fetching README: {e}")
+        readme = None
+
+    if not readme:
+        print("No README found or failed to fetch. Aborting.")
+        return
+
+    # -----------------------------
+    # Stage 1: Repo Analyzer
+    # -----------------------------
+    print("\n=== Repo Analyzer ===")
+    analysis = repo_analyzer(readme)
+    state.set("analyzer", analysis)
+
+    print("\nAnalyzer summary:")
+    print(analysis.get("summary"))
+    if analysis.get("suggestions"):
+        print("\nSuggestions:")
+        for s in analysis["suggestions"]:
+            print(" -", s)
+
+    if interactive:
+        choice = ask_human_choice("\nProceed to Tag Recommender?")
+        if choice == "no":
+            print("Pipeline stopped by user.")
+            return
+        if choice == "edit":
+            edited = get_multiline_input(
+                "Edit README excerpt (this will be used by next agents):"
+            )
+            if edited:
+                readme = edited
+                state.set("readme_edited", True)
+                print("Edited README saved for next steps.")
+    else:
+        print("Non-interactive mode: continuing...")
+
+    # -----------------------------
+    # Stage 2: Tag Recommender
+    # -----------------------------
+    print("\n=== Tag Recommender ===")
+    tags_out = tag_recommender(readme)
+    state.set("tags", tags_out)
+
+    print("Suggested tags:", ", ".join(tags_out.get("tags", [])))
+
+    if interactive:
+        choice = ask_human_choice(
+            "Proceed to Content Improver (title/intro suggestions)?"
+        )
+        if choice == "no":
+            print("Pipeline stopped by user.")
+            return
+        if choice == "edit":
+            edited = get_multiline_input(
+                "Edit content (title/intro) to use next:"
+            )
+            if edited:
+                readme = edited
+                state.set("readme_edited_by_tags", True)
+                print("Edited content saved for next steps.")
+
+    # -----------------------------
+    # Stage 3: Content Improver
+    # -----------------------------
+    print("\n=== Content Improver ===")
+    improvements = content_improver(readme)
+    state.set("improvements", improvements)
+
+    print("Suggested Title:", improvements.get("suggested_title"))
+    print("Suggested Intro (preview):", improvements.get("suggested_intro"))
+
+    if interactive:
+        choice = ask_human_choice("Proceed to final Reviewer?")
+        if choice == "no":
+            print("Pipeline stopped by user.")
+            return
+        if choice == "edit":
+            edited = get_multiline_input(
+                "Edit improved intro/title to use in final report:"
+            )
+            if edited:
+                # simple behavior: override intro in the state
+                improvements["suggested_intro"] = edited
+                state.set("improvements", improvements)
+                print("Edited intro saved.")
+
+    # -----------------------------
+    # Stage 4: Reviewer (aggregation)
+    # -----------------------------
+    print("\n=== Reviewer: Synthesizing final report ===")
+    report_out = reviewer(state.to_dict())
+    report_text = report_out.get("report", "No report produced.")
+
+    # Save outputs with timestamped filenames
+    ts = str(int(__import__("time").time()))
+    rec_f = OUTPUTS_DIR / f"recommendations_{ts}.txt"
+    rpt_f = OUTPUTS_DIR / f"report_{ts}.txt"
+
+    with open(rec_f, "w", encoding="utf-8") as fh:
+        fh.write("Recommendations (auto-generated)\n\n")
+        fh.write(json.dumps(state.to_dict(), indent=2))
+
+    with open(rpt_f, "w", encoding="utf-8") as fh:
+        fh.write(report_text)
+
+    print("\n--- Final Report ---\n")
+    print(report_text)
+    print(f"\nSaved: {rec_f}\nSaved: {rpt_f}")
+
+
+def main():
+    parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--save-report",
+        "--repo",
+        type=str,
+        help="GitHub repo URL to analyze",
+        required=True,
+    )
+    parser.add_argument(
+        "--no-interactive",
         action="store_true",
-        help="Also write a brief analysis report.txt (sections, keywords, raw suggestions)",
+        help="Run pipeline without human prompts",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=10,
+        help="HTTP timeout seconds",
     )
     args = parser.parse_args()
 
-    # Run pipeline
-    result = run_pipeline(args.repo)
+    run_pipeline(
+        args.repo,
+        interactive=not args.no_interactive,
+        timeout_sec=args.timeout,
+    )
 
-    # Prepare outputs directory & filenames
-    os.makedirs("outputs", exist_ok=True)
-    timestamp = time.strftime("%Y%m%d-%H%M%S")
-    repo_name = _guess_repo_name(args.repo)
 
-    recommend_path = f"outputs/{repo_name}_recommendations_{timestamp}.txt"
-    report_path = f"outputs/{repo_name}_report_{timestamp}.txt"
-
-    # Final recommendations text
-    final_text = result.get("final_output", "") or ""
-
-    # Write recommendations (always)
-    with open(recommend_path, "w", encoding="utf-8") as f:
-        f.write(final_text)
-
-    # Print to console as well
-    print("\n--- FINAL RECOMMENDATIONS ---\n")
-    print(final_text)
-    print(f"\nSaved recommendations to: {recommend_path}")
-
-    # Optionally write detailed report (sections, keywords, raw blocks)
-    if args.save_report:
-        sections = result.get("sections") or []
-        keywords = result.get("keywords") or []
-        meta_raw = (result.get("metadata_suggestions") or {}).get("raw", [])
-        content_raw = (result.get("content_suggestions") or {}).get("raw", "")
-
-        # Normalize to list for meta_raw
-        if not isinstance(meta_raw, list):
-            meta_raw = [meta_raw]
-
-        report_lines = []
-        report_lines.append("=== Multi-Agent Publication Assistant — Analysis Report ===")
-        report_lines.append(f"Repo URL: {result.get('repo_url', 'N/A')}")
-        report_lines.append("")
-        report_lines.append(f"Sections found ({len(sections)}):")
-        for s in sections:
-            report_lines.append(f"  - {s}")
-        report_lines.append("")
-        report_lines.append("Top keywords:")
-        for kw in keywords[:20]:
-            report_lines.append(f"  - {kw}")
-        report_lines.append("")
-        report_lines.append("Raw metadata suggestions (LLM):")
-        for block in meta_raw:
-            report_lines.append(f"  {block}")
-        report_lines.append("")
-        report_lines.append("Raw content suggestions (LLM, truncated to 1200 chars):")
-        report_lines.append((content_raw or "")[:1200])
-
-        with open(report_path, "w", encoding="utf-8") as rf:
-            rf.write("\n".join(report_lines))
-
-        print(f"Saved report to: {report_path}")
+if __name__ == "__main__":
+    main()

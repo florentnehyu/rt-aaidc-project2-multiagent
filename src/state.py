@@ -1,11 +1,19 @@
-from typing import TypedDict, List, Optional, Dict
+# src/state.py
+from typing import Any, Dict
 
-class MASState(TypedDict, total=False):
-    repo_url: str
-    readme_text: str
-    sections: List[str]
-    keywords: List[str]
-    metadata_suggestions: Dict[str, List[str]]
-    content_suggestions: Dict[str, str]
-    review_notes: str
-    final_output: str
+class MASState:
+    """
+    Simple shared state for multi-agent system.
+    Stores intermediate outputs under named keys.
+    """
+    def __init__(self):
+        self.data: Dict[str, Any] = {}
+
+    def set(self, key: str, value: Any):
+        self.data[key] = value
+
+    def get(self, key: str, default=None):
+        return self.data.get(key, default)
+
+    def to_dict(self):
+        return dict(self.data)

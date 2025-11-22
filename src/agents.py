@@ -1,65 +1,128 @@
-import os
-from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import HumanMessage
-from .state import MASState
-from .tools import fetch_repo_readme, extract_keywords, lint_readme_sections
+# src/agents.py
+from typing import Dict, List, Tuple
+import re
+from collections import Counter
 
-load_dotenv()
-_llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
+STOPWORDS = {
+    "the", "and", "to", "of", "a", "in", "is", "for", "this", "that", "on", "with",
+    "by", "as", "it", "an", "be", "are", "or", "from", "your", "we", "our", "you"
+}
 
-def _ask_llm(prompt: str) -> str:
-    resp = _llm.invoke([HumanMessage(content=prompt)])
-    return getattr(resp, "content", str(resp))
 
-def agent_repo_analyzer(state: MASState) -> MASState:
-    readme = fetch_repo_readme(state["repo_url"])
-    sections = lint_readme_sections(readme)
-    kw = extract_keywords(readme)
-    state.update({"readme_text": readme, "sections": sections, "keywords": kw})
-    return state
+def repo_analyzer(readme_text: str) -> Dict:
+    """
+    Analyze README: presence of common sections, length, quick suggestions.
+    Returns a dict with keys: summary, sections, suggestions
+    """
+    text = (readme_text or "").strip()
+    tokens = len(text.split())
+    sections = {
+        "title": bool(re.search(r"^#\s+", text, re.MULTILINE)),
+        "installation": bool(re.search(r"(?i)installation", text)),
+        "usage": bool(re.search(r"(?i)usage", text)),
+        "contributing": bool(re.search(r"(?i)contributing", text)),
+        "license": bool(re.search(r"(?i)license", text)),
+        "examples": bool(re.search(r"(?i)example", text)),
+    }
 
-def agent_metadata(state: MASState) -> MASState:
-    text = state.get("readme_text", "")
-    kw = state.get("keywords", [])
-    prompt = f"""
-Suggest 6–10 tags and 2–4 categories for this GitHub AI project.
+    suggestions = []
+    if not sections["title"]:
+        suggestions.append("Add a short, descriptive title at the top (H1).")
+    if not sections["installation"]:
+        suggestions.append("Add an Installation section with 3 steps (venv, install, .env).")
+    if not sections["usage"]:
+        suggestions.append("Add Usage examples and example CLI commands.")
+    if tokens < 100:
+        suggestions.append(
+            "Consider expanding the README with a short project description (100+ words)."
+        )
 
-README:
-{text[:1200]}
-KEYWORDS: {kw[:20]}
-"""
-    out = _ask_llm(prompt)
-    state["metadata_suggestions"] = {"raw": out}
-    return state
+    summary = (
+        f"README length: {tokens} words. "
+        f"Sections found: {', '.join(k for k, v in sections.items() if v)}."
+    )
+    return {
+        "summary": summary,
+        "sections": sections,
+        "suggestions": suggestions,
+        "readme_excerpt": text[:1000],
+    }
 
-def agent_content_improver(state: MASState) -> MASState:
-    text = state.get("readme_text", "")
-    sections = state.get("sections", [])
-    prompt = f"""
-Improve the project title, summary, and list missing recommended README sections.
-Return a concise list.
 
-CURRENT SECTIONS: {sections}
-README:
-{text[:1200]}
-"""
-    out = _ask_llm(prompt)
-    state["content_suggestions"] = {"raw": out}
-    return state
+def _simple_keywords(text: str, k: int = 6) -> List[Tuple[str, int]]:
+    text = re.sub(r"[^\w\s]", " ", (text or "").lower())
+    tokens = [t for t in text.split() if t not in STOPWORDS and len(t) > 2]
+    counts = Counter(tokens)
+    return counts.most_common(k)
 
-def agent_reviewer(state: MASState) -> MASState:
-    prompt = f"""
-Combine metadata_suggestions and content_suggestions into a single final plan:
-1) Improved title
-2) Short summary (3–5 sentences)
-3) Suggested tags (6–10)
-4) Suggested categories (2–4)
-5) Checklist of missing sections
 
-METADATA: {state.get("metadata_suggestions")}
-CONTENT: {state.get("content_suggestions")}
-"""
-    final = _ask_llm(prompt)
-    state["final_output"] = final
-    return state
+def tag_recommender(readme_text: str) -> Dict:
+    """
+    Suggest project tags (simple frequency-based keywords).
+    """
+    kw = _simple_keywords(readme_text, k=8)
+    tags = [w.replace(" ", "-") for w, _ in kw]
+    return {"tags": tags, "keywords": kw}
+
+
+def content_improver(readme_text: str) -> Dict:
+    """
+    Provide a few suggested rewrites for title/intro.
+    Keep this simple: pick first heading and suggest a polished version.
+    """
+    text = (readme_text or "").strip()
+    title_match = re.search(r"^#\s*(.+)$", text, re.MULTILINE)
+    first_para = ""
+
+    if title_match:
+        title = title_match.group(1).strip()
+    else:
+        title = "Project Title"
+
+    # find first paragraph after title
+    after = text[title_match.end():] if title_match else text
+    paras = re.split(r"\n\s*\n", after.strip())
+    if paras:
+        first_para = paras[0].strip()
+
+    # simple polish: shorten long sentences (very naive)
+    suggestion_title = f"{title} — A concise RAG & multi-agent assistant"
+    suggestion_intro = (
+        (first_para[:320] + ("…" if len(first_para) > 320 else ""))
+        or "This repository implements a multi-agent assistant that reviews GitHub repositories and recommends improvements."
+    )
+
+    return {
+        "suggested_title": suggestion_title,
+        "suggested_intro": suggestion_intro,
+    }
+
+
+def reviewer(state: Dict) -> Dict:
+    """
+    Synthesize outputs from agents into a final actionable report (string).
+    state: expected keys: analyzer, tags, improvements
+    """
+    analyzer = state.get("analyzer", {})
+    tags = state.get("tags", {}).get("tags", [])
+    improvements = state.get("improvements", {})
+
+    lines = []
+    lines.append("Final Report — Multi-Agent Publication Reviewer\n")
+    lines.append(analyzer.get("summary", "No analysis available."))
+
+    if analyzer.get("suggestions"):
+        lines.append("\nTop Suggestions:")
+        for s in analyzer["suggestions"]:
+            lines.append(f" - {s}")
+
+    if tags:
+        lines.append("\nSuggested tags: " + ", ".join(tags))
+
+    if improvements:
+        lines.append("\nContent improvement suggestions:")
+        lines.append(f" * Title: {improvements.get('suggested_title')}")
+        lines.append(f" * Intro (preview): {improvements.get('suggested_intro')}")
+
+    report = "\n".join(lines)
+    return {"report": report}
