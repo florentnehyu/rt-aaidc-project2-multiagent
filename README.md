@@ -73,30 +73,40 @@ Create a .env file in the project root:
 GOOGLE_API_KEY=your_google_api_key_here
 .env is protected via .gitignore and will not be committed.
 
-▶️ Running the Application
-One-time setup (make src a package)
+▶️ Running the Application One-time setup (make src a package)
+
 ni .\src\__init__.py -ItemType File -ErrorAction SilentlyContinue
 
 ▶️ Running the system (interactive HITL)
+
 Analyze a public GitHub repo with human-in-the-loop checkpoints:
+
 python -m src.app --repo "https://api.github.com/repos/{owner}/{repo}/readme"
 
 💡 Explanation:
+
 {owner} = GitHub username or organization
+
 {repo} = Repository name
+
 This URL correctly points to the GitHub REST API endpoint for the README file.
 
 Example:
+
 python -m src.app --repo "https://github.com/sbm-11-SFDC/rt-aaidc-project2-multiagent"
 
 Non-interactive (automated) mode:
+
 python -m src.app --repo "https://api.github.com/repos/{owner}/{repo}/readme"--no-interactive
 
 Example:
+
 python -m src.app --repo "https://github.com/sbm-11-SFDC/rt-aaidc-project2-multiagent" --no-interactive
 
 Generated Output
+
 outputs/recommendations_<timestamp>.txt
+
 outputs/report_<timestamp>.txt
 
 # 🧩 Human-in-the-Loop (HITL) Interaction
