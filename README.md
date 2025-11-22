@@ -162,10 +162,14 @@ The system achieved consistent output and demonstrated strong reliability during
 
 📄 License
 This project is licensed under the MIT License.
+
 See the [LICENSE] file for details
 
 👤 Author
+
 Suraj Mahale
+
 AI & Salesforce Developer
-GitHub:https://github.com/sbm-11-SFDC
+
+GitHub: https://github.com/sbm-11-SFDC
 
