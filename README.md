@@ -86,13 +86,13 @@ python -m src.app --repo "https://api.github.com/repos/{owner}/{repo}/readme"
 {repo} = Repository name
 This URL correctly points to the GitHub REST API endpoint for the README file.
 
-# Example:
+Example:
 python -m src.app --repo "https://github.com/sbm-11-SFDC/rt-aaidc-project2-multiagent"
 
-# Non-interactive (automated) mode:
+Non-interactive (automated) mode:
 python -m src.app --repo "https://api.github.com/repos/{owner}/{repo}/readme"--no-interactive
 
-# Example:
+Example:
 python -m src.app --repo "https://github.com/sbm-11-SFDC/rt-aaidc-project2-multiagent" --no-interactive
 
 Generated Output
@@ -160,7 +160,7 @@ Execution time, reliability, and failure resilience
 
 The system achieved consistent output and demonstrated strong reliability during repeated test runs with different GitHub repositories.
 
-📦 License
+📄 License
 This project is licensed under the MIT License.
 See the [LICENSE] file for details
 
